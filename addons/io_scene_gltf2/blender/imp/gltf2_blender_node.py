@@ -76,14 +76,17 @@ class BlenderNode():
             if bpy.app.version < (2, 80, 0):
                 bpy.data.scenes[gltf.blender_scene].objects.link(obj)
             else:
-                bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
+                if gltf.blender_active_collection is not None:
+                    bpy.data.collections[gltf.blender_active_collection].objects.link(obj)
+                else:
+                    bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
 
             # Transforms apply only if this mesh is not skinned
             # See implementation node of gltf2 specification
             if not (pynode.mesh and pynode.skin is not None):
                 BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)
             pynode.blender_object = obj.name
-            BlenderNode.set_parent(gltf, pynode, obj, parent)
+            BlenderNode.set_parent(gltf, obj, parent)
 
             if instance == False:
                 BlenderMesh.set_mesh(gltf, gltf.data.meshes[pynode.mesh], mesh, obj)
@@ -102,7 +105,11 @@ class BlenderNode():
             obj = BlenderCamera.create(gltf, pynode.camera)
             BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)  # TODO default rotation of cameras ?
             pynode.blender_object = obj.name
-            BlenderNode.set_parent(gltf, pynode, obj, parent)
+            BlenderNode.set_parent(gltf, obj, parent)
+
+            if pynode.children:
+                for child_idx in pynode.children:
+                    BlenderNode.create(gltf, child_idx, node_idx)
 
             return
 
@@ -130,7 +137,7 @@ class BlenderNode():
                 BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent, correction=True)
                 pynode.blender_object = obj.name
                 pynode.correction_needed = True
-                BlenderNode.set_parent(gltf, pynode, obj, parent)
+                BlenderNode.set_parent(gltf, obj, parent)
 
                 if pynode.children:
                     for child_idx in pynode.children:
@@ -150,17 +157,21 @@ class BlenderNode():
         if bpy.app.version < (2, 80, 0):
             bpy.data.scenes[gltf.blender_scene].objects.link(obj)
         else:
-            bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
+            if gltf.blender_active_collection is not None:
+                bpy.data.collections[gltf.blender_active_collection].objects.link(obj)
+            else:
+                bpy.data.scenes[gltf.blender_scene].collection.objects.link(obj)
+
         BlenderNode.set_transforms(gltf, node_idx, pynode, obj, parent)
         pynode.blender_object = obj.name
-        BlenderNode.set_parent(gltf, pynode, obj, parent)
+        BlenderNode.set_parent(gltf, obj, parent)
 
         if pynode.children:
             for child_idx in pynode.children:
                 BlenderNode.create(gltf, child_idx, node_idx)
 
     @staticmethod
-    def set_parent(gltf, pynode, obj, parent):
+    def set_parent(gltf, obj, parent):
         """Set parent."""
         if parent is None:
             return
